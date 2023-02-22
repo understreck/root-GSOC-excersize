@@ -1,7 +1,11 @@
 using json = nlohmann::json;
 
+/* std::string jsonToConstructorArguments(nlohmann::json const&)
+ * Recursively constructs C++ constructor argument from a subset
+ * of valid json objects and types
+ */
 std::string
-convert(json const& value) {
+jsonToConstructorArguments(json const& value) {
     using value_t = json::value_t;
 
     auto string = std::string{};
@@ -15,9 +19,9 @@ convert(json const& value) {
 
             string += '{';
             for(int i = 0; i < value.size() - 1; i++) {
-                string += convert(value[i]) + ", ";
+                string += jsonToConstructorArguments(value[i]) + ", ";
             }
-            string += convert(value[value.size() - 1]) + '}';
+            string += jsonToConstructorArguments(value[value.size() - 1]) + '}';
         } break;
 
         case value_t::string:
@@ -33,33 +37,41 @@ convert(json const& value) {
         } break;
 
 
-        //TODO: figure out if these are valid is valid here
-        //And if not implement error handling
-        case value_t::object: {} break;
-        case value_t::binary: {} break;
-        case value_t::discarded: {} break;
-        case value_t::null: {} break;
-    
-        //TODO: error management
-        default: {} //should never get here
+        case value_t::object:
+        [[fallthrough]];
+        case value_t::binary:
+        [[fallthrough]];
+        case value_t::discarded:
+        [[fallthrough]];
+        case value_t::null: {
+            throw std::invalid_argument{
+                "Invalid nlohmann::json::value_t type enum: " +
+                std::string{value.type_name()}
+            };
+        } break;
+
+        default: {
+            throw std::invalid_argument{
+                "Out of range nlohmann::json::value_t type enum: " +
+                std::string{value.type_name()} + '\n' +
+                "This should not be able to happen and is probably an error in nlohmann::json"
+            };
+        }
     }
 
     return string;
 }
 
 std::unique_ptr<TObject>
-//auto
 createFromJsonString(std::string const &jsonStr) {
     auto jsonObject = json::parse(jsonStr);
-    
+
     auto interpString = 
         std::string{"new "} +
         jsonObject.at("class").get<std::string>();
 
-    interpString += convert(jsonObject.at("args")) + ';';
+    interpString += jsonToConstructorArguments(jsonObject.at("args")) + ';';
 
-    //return args;
-    //return interpString;
     return std::unique_ptr<TObject>{
         reinterpret_cast<TObject *>(
             gInterpreter->ProcessLine(interpString.data()))
