@@ -15,9 +15,3 @@ private:
     std::string title_;
     int value_;
 };
-
-void instantiate_MyClass() {
-    auto object = MyClass("name", "title", 1);
-
-    object.Print();
-}
